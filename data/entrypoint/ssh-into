@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+node="$1" # server-0 worker-0 worker-1
+
+ssh -i ~/$node.key vagrant@$(grep $node ~/node-hosts | cut -d' ' -f2)
+

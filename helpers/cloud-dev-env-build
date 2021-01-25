@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+nodes="$@"
+
+vagrant up --provision-with before-isolation $nodes && \
+	vagrant halt $nodes && \
+	isolate vagrant reload --provision $nodes
+

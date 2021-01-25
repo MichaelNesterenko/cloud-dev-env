@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+export PATH="$SCRIPT_DIR:$PATH"
+
+export VAGRANT_EXPERIMENTAL="disks"
+
+eval "$@"
+
+
