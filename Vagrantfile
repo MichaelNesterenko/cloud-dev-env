@@ -22,14 +22,24 @@ Vagrant.configure("2") do |config|
       iptables -t nat -A POSTROUTING -o enp0s3 -j MASQUERADE
       sysctl net.ipv4.ip_forward=1
     SHELL
-    m.vm.provision "file", source: "data/net-gateway/dnsmasq.conf", destination: "dnsmasq.conf"
+
+    m.vm.provision "file", source: "data/net-gateway", destination: "/tmp/net-gateway-data"
+    m.vm.provision "file", source: "secrets/net-gateway", destination: "/tmp/net-gateway-secrets"
+    m.vm.provision "shell", inline: <<-SHELL
+      chown -R root:root /tmp/net-gateway-data /tmp/net-gateway-secrets && \
+      for f in $(find /tmp/net-gateway-data/ /tmp/net-gateway-secrets/ -mindepth 1 -maxdepth 1); do
+        cp -r $f /
+      done && \
+      rm -rf /tmp/net-gateway-{data,secrets} && \
+      chown -R vagrant:vagrant /home/vagrant && find /home/vagrant/.ssh/ -type f | xargs chmod 0600
+    SHELL
 
     m.vm.provision "shell", inline: <<-SHELL
       apt install -y --download-only dnsmasq && \
       apt install -y dnsmasq && \
       echo nameserver 127.0.0.1 > /etc/resolv.conf && \
       systemctl stop dnsmasq && mv dnsmasq.conf /etc/dnsmasq.conf && systemctl restart dnsmasq && \
-      apt install -y openconnect
+      apt install -y openconnect inotify-tools
     SHELL
 
   end
