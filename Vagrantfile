@@ -23,14 +23,9 @@ Vagrant.configure("2") do |config|
       sysctl net.ipv4.ip_forward=1
     SHELL
 
-    m.vm.provision "file", source: "data/net-gateway", destination: "/tmp/net-gateway-data"
-    m.vm.provision "file", source: "secrets/net-gateway", destination: "/tmp/net-gateway-secrets"
+    provision_host_directory m, "data/net-gateway"
+    provision_host_directory m, "secrets/net-gateway"
     m.vm.provision "shell", inline: <<-SHELL
-      chown -R root:root /tmp/net-gateway-data /tmp/net-gateway-secrets && \
-      for f in $(find /tmp/net-gateway-data/ /tmp/net-gateway-secrets/ -mindepth 1 -maxdepth 1); do
-        cp -r $f /
-      done && \
-      rm -rf /tmp/net-gateway-{data,secrets} && \
       chown -R vagrant:vagrant /home/vagrant && find /home/vagrant/.ssh/ -type f | xargs chmod 0600
     SHELL
 
@@ -46,14 +41,14 @@ Vagrant.configure("2") do |config|
 
   1.times { |idx|
     config.vm.define "rancher-server-#{idx}" do |m|
-      vm m, memory: 1536, hostname: "rancher-server-#{idx}", internal_node: true
-      provision_docker m
+      vm m, memory: 8192, hostname: "rancher-server-#{idx}", internal_node: true
+      provision_rancher_server m
     end
   }
   2.times { |idx|
     config.vm.define "rancher-worker-#{idx}" do |m|
       vm m, cpus: 6, memory: 16384, disk_size: "100GB", hostname: "rancher-worker-#{idx}", internal_node: true
-      provision_docker m
+      provision_rancher_agent m
     end
   }
 
@@ -126,13 +121,38 @@ Vagrant.configure("2") do |config|
     return "#{IP_NETWORK}#{ip}"
   end
 
-  def provision_docker(m)
+  def provision_rancherd(m, config_name)
+    provision_host_directory m, "data/rancher/config-#{config_name}"
     m.vm.provision "shell", inline: <<-SHELL
-      apt install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common && \
-      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
-      add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
-      apt update -y && apt install -y docker-ce docker-ce-cli containerd.io
+      curl -sfL https://get.rancher.io | sh -
     SHELL
+  end
+  def provision_rancher_server(m)
+    provision_rancherd m, "server"
+    m.vm.provision "shell", inline: <<-SHELL
+      systemctl enable rancherd-server.service &&
+      systemctl start rancherd-server.service &&
+      while ! nc -z localhost 443; do sleep 5; echo waiting for rancher-server; done &&
+      while ! rancherd reset-admin --password cloud; do sleep 5; echo retrying ui init; done
+    SHELL
+  end
+  def provision_rancher_agent(m)
+    provision_rancherd m, "agent"
+    m.vm.provision "shell", inline: <<-SHELL
+      systemctl enable rancherd-agent.service &&
+      systemctl start rancherd-agent.service
+    SHELL
+  end
+
+  def provision_host_directory(m, host_directory)
+    m.vm.provision "file", source: host_directory, destination: "/tmp/file-provision"
+    m.vm.provision "shell", inline: <<-SHELL
+      for f in $(find /tmp/file-provision/ -mindepth 1 -maxdepth 1); do
+        cp -r $f /
+      done &&
+      rm -rf /tmp/file-provision
+    SHELL
+
   end
 
 end
