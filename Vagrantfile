@@ -130,12 +130,20 @@ Vagrant.configure("2") do |config|
   def provision_rancher_server(m)
     provision_rancherd m, "server"
     m.vm.provision "shell", inline: <<-SHELL
+      function retry_until_success() {
+        local command="$1"
+        local message="${2:-retrying $1}"
+        while ! eval "$command"; do sleep 5; echo "$message"; done
+      }
       snap install kubectl --classic && bash <(curl -sL  https://www.eclipse.org/che/chectl/) &&
       systemctl enable rancherd-server.service && systemctl start rancherd-server.service &&
-        while ! nc -z localhost 443; do sleep 5; echo waiting for rancher-server; done &&
-        while ! rancherd reset-admin --password cloud; do sleep 5; echo retrying ui init; done &&
-      mkdir /home/vagrant/.kube && cp /etc/rancher/rke2/rke2.yaml /home/vagrant/.kube/config &&
-      chown -R vagrant:vagrant /home/vagrant
+        retry_until_success "nc -z localhost 443" "waiting for rancher-server" &&
+        retry_until_success "rancherd reset-admin --password cloud" "retrying ui init" &&
+      mkdir /home/vagrant/.kube && mkdir /root/.kube/ &&
+        cp /etc/rancher/rke2/rke2.yaml /home/vagrant/.kube/config &&
+        cp /etc/rancher/rke2/rke2.yaml /root/.kube/config &&
+        chown -R vagrant:vagrant /home/vagrant &&
+      kubectl apply -f /home/vagrant/rancher/
     SHELL
   end
   def provision_rancher_agent(m)
