@@ -103,17 +103,17 @@ Vagrant.configure("2") do |config|
 
     if cfg.fetch(:internal_node, false) then
       internal_node_network m, cfg.fetch(:hostname)
-      additional_script = "apt install -y dhcpcd5"
+      additional_script = "(apt install -y dhcpcd5 && echo 'allowinterfaces enp*' >> /etc/dhcpcd.conf)"
     else
       internal_network m, ip: cfg.fetch(:ip)
       additional_script = ""
     end
 
     m.vm.provision PROVISION_BEFORE_ISOLATION, run: "never", type: "shell", inline: <<-SHELL
-      apt update -y && apt upgrade -y && apt install -y net-tools iputils-tracepath \
-      #{if !additional_script.empty? then "&& " + additional_script else "" end} && \
-      systemctl disable systemd-resolved && systemctl stop systemd-resolved && \
-      rm /etc/resolv.conf && echo nameserver 8.8.8.8 > /etc/resolv.conf
+      apt update -y && apt upgrade -y && apt install -y net-tools iputils-tracepath #{if !additional_script.empty? then "&& " + additional_script else "" end} &&
+      systemctl disable multipathd && systemctl stop multipathd &&
+      systemctl disable systemd-resolved && systemctl stop systemd-resolved &&
+        rm /etc/resolv.conf && echo nameserver 8.8.8.8 > /etc/resolv.conf
     SHELL
   end
 
@@ -130,10 +130,12 @@ Vagrant.configure("2") do |config|
   def provision_rancher_server(m)
     provision_rancherd m, "server"
     m.vm.provision "shell", inline: <<-SHELL
-      systemctl enable rancherd-server.service &&
-      systemctl start rancherd-server.service &&
-      while ! nc -z localhost 443; do sleep 5; echo waiting for rancher-server; done &&
-      while ! rancherd reset-admin --password cloud; do sleep 5; echo retrying ui init; done
+      snap install kubectl --classic && bash <(curl -sL  https://www.eclipse.org/che/chectl/) &&
+      systemctl enable rancherd-server.service && systemctl start rancherd-server.service &&
+        while ! nc -z localhost 443; do sleep 5; echo waiting for rancher-server; done &&
+        while ! rancherd reset-admin --password cloud; do sleep 5; echo retrying ui init; done &&
+      mkdir /home/vagrant/.kube && cp /etc/rancher/rke2/rke2.yaml /home/vagrant/.kube/config &&
+      chown -R vagrant:vagrant /home/vagrant
     SHELL
   end
   def provision_rancher_agent(m)
