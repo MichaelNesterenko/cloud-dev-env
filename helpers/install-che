@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+vagrant-ssh rancher-server-0 -- chectl server:deploy --platform=k8s --installer=operator --domain=che.c-d-e 
+

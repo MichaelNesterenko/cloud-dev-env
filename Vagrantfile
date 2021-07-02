@@ -149,8 +149,8 @@ Vagrant.configure("2") do |config|
   def provision_rancher_agent(m)
     provision_rancherd m, "agent"
     m.vm.provision "shell", inline: <<-SHELL
-      systemctl enable rancherd-agent.service &&
-      systemctl start rancherd-agent.service
+      systemctl enable rancherd-agent.service && systemctl start rancherd-agent.service &&
+      mkdir -p /k8s/persistent/pv-{0..2}-{0..2}
     SHELL
   end
 
