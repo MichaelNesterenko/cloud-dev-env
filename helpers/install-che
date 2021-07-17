@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 
-vagrant-ssh rancher-server-0 -- chectl server:deploy --platform=k8s --installer=operator --domain=che.c-d-e 
-
+echo  '''
+	chectl server:deploy \
+		--platform=k8s \
+		--installer=operator \
+		--domain=che.c-d-e \
+		--multiuser \
+		--telemetry=off \
+		--che-operator-cr-patch-yaml=./che/che-configuration.yaml''' | vagrant-ssh rancher-server-0 -- bash -

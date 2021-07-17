@@ -1,0 +1,8 @@
+apiVersion: org.eclipse.che/v1
+kind: CheCluster
+metadata:
+  name: eclipse-che
+spec:
+    serverTrustStoreConfigMapName: che-custom-certs
+  k8s:
+    tlsSecretName: che-cert
