@@ -3,6 +3,11 @@ kind: CheCluster
 metadata:
   name: eclipse-che
 spec:
+  server:
+    customCheProperties:
+      CHE_LIMITS_USER_WORKSPACES_RUN_COUNT: "10"
     serverTrustStoreConfigMapName: che-custom-certs
   k8s:
     tlsSecretName: che-cert
+  storage:
+    pvcStrategy: 'per-workspace'
