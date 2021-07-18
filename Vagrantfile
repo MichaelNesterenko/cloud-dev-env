@@ -24,10 +24,6 @@ Vagrant.configure("2") do |config|
     SHELL
 
     provision_host_directory m, "data/net-gateway"
-    provision_host_directory m, "secrets/net-gateway"
-    m.vm.provision "shell", inline: <<-SHELL
-      chown -R vagrant:vagrant /home/vagrant && find /home/vagrant/.ssh/ -type f | xargs chmod 0600
-    SHELL
 
     m.vm.provision "shell", inline: <<-SHELL
       apt install -y --download-only dnsmasq && \
@@ -55,9 +51,9 @@ Vagrant.configure("2") do |config|
   config.vm.define "entrypoint" do |m|
     vm m, memory: 512, hostname: "entrypoint", internal_node: true
 
-    m.vm.provision "file", source: ".vagrant/machines/rancher-server-0/virtualbox/private_key", destination: "rancher-server-0.key"
-    m.vm.provision "file", source: ".vagrant/machines/rancher-worker-0/virtualbox/private_key", destination: "rancher-worker-0.key"
-    m.vm.provision "file", source: ".vagrant/machines/rancher-worker-1/virtualbox/private_key", destination: "rancher-worker-1.key"
+    m.vm.provision "file", source: "./secrets/rancher-server-0/home/vagrant/.ssh/id_rsa", destination: "rancher-server-0.key"
+    m.vm.provision "file", source: "./secrets/rancher-worker-0/home/vagrant/.ssh/id_rsa", destination: "rancher-worker-0.key"
+    m.vm.provision "file", source: "./secrets/rancher-worker-1/home/vagrant/.ssh/id_rsa", destination: "rancher-worker-1.key"
     m.vm.provision "file", source: "data/entrypoint/ssh-into", destination: "ssh-into"
   end
 
@@ -68,7 +64,7 @@ Vagrant.configure("2") do |config|
       m.vm.network "forwarded_port", host: 2200, guest: 22, id: "ssh", disabled: true
 
       m.ssh.host = host_name
-      m.ssh.proxy_command = "ssh -i ./.vagrant/machines/net-gateway/virtualbox/private_key -W %h:%p -p 2222 -o LogLevel=FATAL -o Compression=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null vagrant@127.0.0.1"
+      m.ssh.proxy_command = "ssh -i ./secrets/net-gateway/home/vagrant/.ssh/id_rsa -W %h:%p -p 2222 -o LogLevel=FATAL -o Compression=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null vagrant@127.0.0.1"
 
       m.vm.provider "virtualbox" do |vb|
         vb.customize "post-boot", ["controlvm", :id, "setlinkstate1", "off"]
@@ -100,6 +96,16 @@ Vagrant.configure("2") do |config|
 
     m.vm.graceful_halt_timeout = 300
     m.vm.boot_timeout = 600
+
+    m.ssh.insert_key = false
+    m.ssh.private_key_path = [
+      "./vagrant/vagrant-key",
+      "./secrets/#{m.vm.hostname}/home/vagrant/.ssh/id_rsa"
+    ]
+    provision_host_directory m, "./secrets/#{m.vm.hostname}"
+    m.vm.provision "shell", inline: <<-SHELL
+      chown -R vagrant:vagrant /home/vagrant && find /home/vagrant/.ssh/ -type f | xargs chmod 0600
+    SHELL
 
     if cfg.fetch(:internal_node, false) then
       internal_node_network m, cfg.fetch(:hostname)
